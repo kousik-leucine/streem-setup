@@ -1,0 +1,26 @@
+server:
+  port: 8765
+  address: 127.0.0.1                # local-only, never bind to all interfaces
+
+spring:
+  application:
+    name: streem-setup
+  main:
+    banner-mode: off
+  # No primary DataSource auto-config — we manage SQLite (local store) and
+  # Postgres (target) connections manually via DataSourceFactory.
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+      - org.springframework.boot.autoconfigure.jdbc.JdbcTemplateAutoConfiguration
+
+logging:
+  level:
+    root: INFO
+    com.leucine.setup: DEBUG
+
+setup:
+  store:
+    # Local SQLite store. Default: ~/.streem-setup/store.db
+    # Override with SETUP_STORE_PATH env var.
+    path: ${SETUP_STORE_PATH:${user.home}/.streem-setup/store.db}

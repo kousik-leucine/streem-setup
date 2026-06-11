@@ -1,0 +1,30 @@
+# Java / Gradle
+.gradle/
+build/
+out/
+*.class
+*.jar
+!gradle-wrapper.jar
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.swp
+
+# Node
+node_modules/
+dist/
+.vite/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local runtime state — never commit
+.streem-setup/
+local-store.db
+local-store.db-journal
+*.env
+*.env.local
