@@ -439,3 +439,39 @@ button.danger:hover { background: #fef2f2; }
 }
 .flag-row.changed { background: #fef3c7; }
 .flag-row code { background: white; padding: 2px 6px; border-radius: 4px; font-size: 12px; font-family: Consolas, monospace; }
+
+/* --- add-license: multi-select checkbox pickers --- */
+.form-row > .grow { flex: 1; min-width: 0; }
+
+.picker-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #6b7280;
+}
+
+.check-list {
+  max-height: 240px;
+  overflow-y: auto;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #f9fafb;
+  padding: 8px 10px;
+}
+.check-list label.checkbox { margin-bottom: 2px; }
+
+button.link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: #2563eb;
+  font-size: 12px;
+  text-transform: none;
+  letter-spacing: normal;
+  cursor: pointer;
+}
+button.link:hover { text-decoration: underline; }

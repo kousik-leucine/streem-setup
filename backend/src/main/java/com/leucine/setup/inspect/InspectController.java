@@ -29,6 +29,18 @@ public class InspectController {
     return inspect.facilities(connectionId, orgId);
   }
 
+  @GetMapping("/organisations/{orgId}/usecases")
+  public List<InspectService.NamedRow> useCasesForOrg(@PathVariable String connectionId,
+                                                      @PathVariable long orgId) {
+    return inspect.useCasesForOrganisation(connectionId, orgId);
+  }
+
+  @GetMapping("/organisations/{orgId}/licenses")
+  public List<InspectService.LicenseRow> licenses(@PathVariable String connectionId,
+                                                  @PathVariable long orgId) {
+    return inspect.licensesForOrganisation(connectionId, orgId);
+  }
+
   @GetMapping("/facilities/{facilityId}/usecases")
   public List<InspectService.NamedRow> useCases(@PathVariable String connectionId,
                                                 @PathVariable long facilityId) {

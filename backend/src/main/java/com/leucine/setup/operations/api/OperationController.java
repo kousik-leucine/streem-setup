@@ -14,6 +14,8 @@ import com.leucine.setup.operations.OperationContext;
 import com.leucine.setup.operations.PreviewResult;
 import com.leucine.setup.operations.addFacility.AddFacilityOperation;
 import com.leucine.setup.operations.addFacility.AddFacilityPayload;
+import com.leucine.setup.operations.addLicense.AddLicenseOperation;
+import com.leucine.setup.operations.addLicense.AddLicensePayload;
 import com.leucine.setup.operations.addProperty.AddPropertyOperation;
 import com.leucine.setup.operations.addProperty.AddPropertyPayload;
 import com.leucine.setup.operations.addUseCase.AddUseCaseOperation;
@@ -49,6 +51,7 @@ public class OperationController {
   private final AddFacilityOperation addFacility;
   private final AddUseCaseOperation addUseCase;
   private final AddPropertyOperation addProperty;
+  private final AddLicenseOperation addLicense;
   private final MapUseCaseOperation mapUseCase;
   private final MapPropertyOperation mapProperty;
   private final SetFeatureFlagsOperation setFeatureFlags;
@@ -61,6 +64,7 @@ public class OperationController {
                              AddFacilityOperation addFacility,
                              AddUseCaseOperation addUseCase,
                              AddPropertyOperation addProperty,
+                             AddLicenseOperation addLicense,
                              MapUseCaseOperation mapUseCase,
                              MapPropertyOperation mapProperty,
                              SetFeatureFlagsOperation setFeatureFlags) {
@@ -72,6 +76,7 @@ public class OperationController {
     this.addFacility = addFacility;
     this.addUseCase = addUseCase;
     this.addProperty = addProperty;
+    this.addLicense = addLicense;
     this.mapUseCase = mapUseCase;
     this.mapProperty = mapProperty;
     this.setFeatureFlags = setFeatureFlags;
@@ -100,6 +105,12 @@ public class OperationController {
   public PreviewResult addPropertyPreview(@Valid @RequestBody OpRequest<AddPropertyPayload> req) { return runPreview(req, addProperty); }
   @PostMapping("/add-property/execute")
   public ExecuteResult addPropertyExecute(@Valid @RequestBody OpRequest<AddPropertyPayload> req) { return runExecute(req, addProperty); }
+
+  // ----- add-license -----
+  @PostMapping("/add-license/preview")
+  public PreviewResult addLicensePreview(@Valid @RequestBody OpRequest<AddLicensePayload> req) { return runPreview(req, addLicense); }
+  @PostMapping("/add-license/execute")
+  public ExecuteResult addLicenseExecute(@Valid @RequestBody OpRequest<AddLicensePayload> req) { return runExecute(req, addLicense); }
 
   // ----- map-usecase -----
   @PostMapping("/map-usecase/preview")

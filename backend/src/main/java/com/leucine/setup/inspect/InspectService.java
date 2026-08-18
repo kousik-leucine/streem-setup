@@ -56,6 +56,44 @@ public class InspectService {
         facilityId));
   }
 
+  /** Every use case reachable from any facility of the org — the pool the license page offers. */
+  public List<NamedRow> useCasesForOrganisation(String connectionId, long organisationId) {
+    return withTarget(connectionId, t -> t.query("""
+        SELECT DISTINCT uc.id, uc.name, uc.label AS extra
+        FROM use_cases uc
+        JOIN facility_use_case_mapping m ON m.use_cases_id = uc.id
+        JOIN facilities f ON f.id = m.facilities_id
+        WHERE f.organisations_id = ? AND uc.archived = false AND f.archived = false
+        ORDER BY uc.name
+        """, (rs, n) -> new NamedRow(rs.getLong("id"), rs.getString("name"), rs.getString("extra")),
+        organisationId));
+  }
+
+  /** Unarchived licenses already on the org, so the operator can see what exists first. */
+  public List<LicenseRow> licensesForOrganisation(String connectionId, long organisationId) {
+    return withTarget(connectionId, t -> t.query("""
+        SELECT l.id, l.facilities_id, f.name AS facility_name,
+               l.use_cases_id, uc.name AS use_case_name,
+               l.product, l.type, l.payment_done,
+               l.subscription_start_date::text AS start_date,
+               l.subscription_renewal_date::text AS renewal_date,
+               l.grace_period, l.intimate_before, l.workflow
+        FROM licenses l
+        LEFT JOIN facilities f ON f.id = l.facilities_id
+        LEFT JOIN use_cases uc ON uc.id = l.use_cases_id
+        WHERE l.organisations_id = ? AND l.archived = false
+        ORDER BY f.name, uc.name
+        """, (rs, n) -> new LicenseRow(
+            rs.getLong("id"),
+            rs.getLong("facilities_id"), rs.getString("facility_name"),
+            rs.getObject("use_cases_id") == null ? null : rs.getLong("use_cases_id"),
+            rs.getString("use_case_name"),
+            rs.getString("product"), rs.getString("type"), rs.getBoolean("payment_done"),
+            rs.getString("start_date"), rs.getString("renewal_date"),
+            rs.getInt("grace_period"), rs.getInt("intimate_before"), rs.getString("workflow")),
+        organisationId));
+  }
+
   public List<NamedRow> useCasesUnmappedToFacility(String connectionId, long facilityId) {
     return withTarget(connectionId, t -> t.query("""
         SELECT uc.id, uc.name, uc.label AS extra
@@ -116,4 +154,12 @@ public class InspectService {
   }
 
   public record NamedRow(long id, String name, String extra) {}
+
+  public record LicenseRow(
+      long id,
+      long facilityId, String facilityName,
+      Long useCaseId, String useCaseName,
+      String product, String type, boolean paymentDone,
+      String startDate, String renewalDate,
+      int gracePeriod, int intimateBefore, String workflow) {}
 }

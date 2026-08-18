@@ -3,8 +3,8 @@
 Local web tool for provisioning streem-backend instances.
 
 Handles: new org bootstrap, facility / use-case / property additions, facility–usecase
-and usecase–property mappings, feature flags. Runs locally, connects directly to
-target Postgres databases.
+and usecase–property mappings, licenses, feature flags. Runs locally, connects directly
+to target Postgres databases.
 
 ## Stack
 
@@ -62,6 +62,7 @@ filesystem permissions.
 | Connection CRUD (add / edit / delete / test) | ✓ Phase 1 |
 | `new-org` operation | TODO Phase 2 |
 | `add-facility`, `add-usecase`, `add-property`, mappings | TODO Phase 3 |
+| `add-license` (facilities x use cases, state presets) | ✓ |
 | Feature flags toggle | TODO Phase 4 |
 | Audit log viewer | TODO Phase 4 |
 | Master-password key | TODO Phase 5 |

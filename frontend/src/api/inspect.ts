@@ -8,9 +8,29 @@ export interface NamedRow {
   extra: string | null;
 }
 
+export interface LicenseRow {
+  id: number;
+  facilityId: number;
+  facilityName: string | null;
+  useCaseId: number | null;
+  useCaseName: string | null;
+  product: string | null;
+  type: string | null;
+  paymentDone: boolean;
+  startDate: string | null;
+  renewalDate: string | null;
+  gracePeriod: number;
+  intimateBefore: number;
+  workflow: string | null;
+}
+
 export const inspectApi = {
   orgs: (connId: string) =>
     http.get<NamedRow[]>(`/inspect/${connId}/organisations`).then(r => r.data),
+  useCasesForOrg: (connId: string, orgId: number) =>
+    http.get<NamedRow[]>(`/inspect/${connId}/organisations/${orgId}/usecases`).then(r => r.data),
+  licenses: (connId: string, orgId: number) =>
+    http.get<LicenseRow[]>(`/inspect/${connId}/organisations/${orgId}/licenses`).then(r => r.data),
   facilities: (connId: string, orgId: number) =>
     http.get<NamedRow[]>(`/inspect/${connId}/organisations/${orgId}/facilities`).then(r => r.data),
   useCases: (connId: string, facilityId: number) =>

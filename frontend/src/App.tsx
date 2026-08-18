@@ -6,6 +6,7 @@ import AddUseCasePage from './pages/AddUseCasePage';
 import AddPropertyPage from './pages/AddPropertyPage';
 import MapUseCasePage from './pages/MapUseCasePage';
 import MapPropertyPage from './pages/MapPropertyPage';
+import AddLicensePage from './pages/AddLicensePage';
 import FeatureFlagsPage from './pages/FeatureFlagsPage';
 import { ConnectionProvider } from './state/ConnectionContext';
 import ConnectionSelector from './components/ConnectionSelector';
@@ -29,6 +30,7 @@ export default function App() {
             <NavLink to="/add-property">Add property</NavLink>
             <NavLink to="/map-usecase">Map use case</NavLink>
             <NavLink to="/map-property">Map property</NavLink>
+            <NavLink to="/add-license">Add licenses</NavLink>
 
             <div className="nav-section">Settings</div>
             <NavLink to="/feature-flags">Feature flags</NavLink>
@@ -55,6 +57,7 @@ export default function App() {
               <Route path="/add-property" element={<AddPropertyPage />} />
               <Route path="/map-usecase" element={<MapUseCasePage />} />
               <Route path="/map-property" element={<MapPropertyPage />} />
+              <Route path="/add-license" element={<AddLicensePage />} />
               <Route path="/feature-flags" element={<FeatureFlagsPage />} />
               <Route path="*" element={<Navigate to="/connections" replace />} />
             </Routes>
