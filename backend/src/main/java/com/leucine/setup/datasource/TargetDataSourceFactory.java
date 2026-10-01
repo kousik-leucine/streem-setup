@@ -12,11 +12,14 @@ import javax.sql.DataSource;
 import java.util.Properties;
 
 /**
- * Opens a JDBC handle to a target Postgres on demand. If the connection is
- * configured for SSH tunneling, borrows a (shared) tunnel from {@link SshTunnelPool}
- * — so repeated operations against the same target don't pay the SSH handshake
- * every time. The tunnel is owned by the pool, not by the returned
- * {@link TargetConnection}.
+ * Opens a JDBC handle to a target Postgres on demand.
+ *
+ * Both expensive parts of reaching a target are cached: the SSH session comes from
+ * {@link SshTunnelPool} and the physical Postgres connections come from
+ * {@link TargetDataSourcePool}. A warm connection therefore costs one round trip, versus
+ * a full SSH handshake plus Postgres authentication per query before. Neither the tunnel
+ * nor the pool is owned by the returned {@link TargetConnection} — closing it releases
+ * nothing shared, so it stays safe in try-with-resources.
  */
 @Component
 public class TargetDataSourceFactory {
@@ -24,9 +27,14 @@ public class TargetDataSourceFactory {
   private static final Logger log = LoggerFactory.getLogger(TargetDataSourceFactory.class);
 
   private final SshTunnelPool tunnelPool;
+  private final TargetDataSourcePool dataSourcePool;
+  private final TargetProperties props;
 
-  public TargetDataSourceFactory(SshTunnelPool tunnelPool) {
+  public TargetDataSourceFactory(SshTunnelPool tunnelPool, TargetDataSourcePool dataSourcePool,
+                                 TargetProperties props) {
     this.tunnelPool = tunnelPool;
+    this.dataSourcePool = dataSourcePool;
+    this.props = props;
   }
 
   public TargetConnection open(Connection conn, TargetSecrets secrets) {
@@ -39,11 +47,27 @@ public class TargetDataSourceFactory {
       jdbcPort = tunnel.localPort();
     }
 
-    DataSource ds = buildDataSource(conn, jdbcHost, jdbcPort, secrets.dbPassword(), conn.database());
-    JdbcTemplate jdbc = new JdbcTemplate(ds);
+    DataSource ds = dataSourcePool.get(conn, jdbcHost, jdbcPort, conn.database(), secrets.dbPassword());
     log.debug("Opened target {} (ssh={})", conn.name(), conn.ssh() != null);
-    // Tunnel is pool-owned; TargetConnection.close() is a no-op for the tunnel.
-    return new TargetConnection(jdbc, null);
+    // Tunnel and pool are shared; TargetConnection.close() releases neither.
+    return new TargetConnection(new JdbcTemplate(ds), null);
+  }
+
+  /**
+   * Establishes the SSH tunnel and the JDBC pool for {@code conn} without running any
+   * caller work, so the first real request doesn't pay for either. Called when the operator
+   * selects a connection in the UI; safe to call repeatedly (a warm connection is a no-op).
+   */
+  public void warm(Connection conn, TargetSecrets secrets) {
+    try (TargetConnection tc = open(conn, secrets)) {
+      tc.jdbc().queryForObject("SELECT 1", Integer.class);   // forces one physical connection
+    }
+  }
+
+  /** True when both the tunnel (if any) and the JDBC pool are already standing. */
+  public boolean isWarm(Connection conn) {
+    boolean tunnelReady = conn.ssh() == null || tunnelPool.isWarm(conn.id());
+    return tunnelReady && dataSourcePool.isWarm(conn.id());
   }
 
   /**
@@ -53,7 +77,7 @@ public class TargetDataSourceFactory {
    * returned {@link TargetConnection} <em>owns</em> its SSH tunnel — closing it (always do
    * so in try-with-resources) tears the tunnel down immediately, so nothing lingers on the
    * bastion or the database server. Do not route normal operations through this; use
-   * {@link #open} so repeated work reuses the pooled tunnel.
+   * {@link #open} so repeated work reuses the pooled tunnel and pooled connections.
    */
   public TargetConnection openEphemeral(Connection conn, TargetSecrets secrets, String connectDatabase) {
     String jdbcHost = conn.host();
@@ -61,11 +85,11 @@ public class TargetDataSourceFactory {
     SshTunnel tunnel = null;
     try {
       if (conn.ssh() != null) {
-        tunnel = SshTunnel.open(sshConfig(conn, secrets));
+        tunnel = SshTunnel.open(sshConfig(conn, secrets), props);
         jdbcHost = "127.0.0.1";
         jdbcPort = tunnel.localPort();
       }
-      DataSource ds = buildDataSource(conn, jdbcHost, jdbcPort, secrets.dbPassword(), connectDatabase);
+      DataSource ds = buildUnpooledDataSource(conn, jdbcHost, jdbcPort, secrets.dbPassword(), connectDatabase);
       JdbcTemplate jdbc = new JdbcTemplate(ds);
       log.debug("Opened ephemeral target {}/{} (ssh={})", conn.host(), connectDatabase, conn.ssh() != null);
       return new TargetConnection(jdbc, tunnel);
@@ -91,8 +115,9 @@ public class TargetDataSourceFactory {
     );
   }
 
-  private DataSource buildDataSource(Connection conn, String host, int port, String password,
-                                     String database) {
+  /** Single-use handle for {@link #openEphemeral}; pooling a throwaway target buys nothing. */
+  private DataSource buildUnpooledDataSource(Connection conn, String host, int port, String password,
+                                             String database) {
     DriverManagerDataSource ds = new DriverManagerDataSource();
     ds.setDriverClassName("org.postgresql.Driver");
     StringBuilder url = new StringBuilder("jdbc:postgresql://")
@@ -105,11 +130,12 @@ public class TargetDataSourceFactory {
     ds.setUsername(conn.username());
     ds.setPassword(password);
 
-    Properties props = new Properties();
-    props.setProperty("ApplicationName", "streem-setup");
-    props.setProperty("connectTimeout", "10");
-    props.setProperty("socketTimeout", "60");
-    ds.setConnectionProperties(props);
+    Properties driverProps = new Properties();
+    driverProps.setProperty("ApplicationName", "streem-setup");
+    driverProps.setProperty("connectTimeout", String.valueOf(props.dbConnectTimeout().toSeconds()));
+    driverProps.setProperty("socketTimeout", String.valueOf(props.dbSocketTimeout().toSeconds()));
+    driverProps.setProperty("assumeMinServerVersion", "9.0");
+    ds.setConnectionProperties(driverProps);
     return ds;
   }
 

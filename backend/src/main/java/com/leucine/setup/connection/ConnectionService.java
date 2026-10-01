@@ -10,6 +10,7 @@ import com.leucine.setup.datasource.SshTunnelPool;
 import com.leucine.setup.datasource.TargetConnection;
 import com.leucine.setup.datasource.TargetDataSourceFactory;
 import com.leucine.setup.datasource.TargetDataSourceFactory.TargetSecrets;
+import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -17,6 +18,8 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 @Service
 public class ConnectionService {
@@ -27,6 +30,17 @@ public class ConnectionService {
   private final AesGcm crypto;
   private final TargetDataSourceFactory dsFactory;
   private final SshTunnelPool tunnelPool;
+
+  /**
+   * Runs connection warm-ups off the request thread. One thread is enough: warming is
+   * best-effort background work, and a queued warm-up for a connection already being
+   * warmed collapses into a no-op.
+   */
+  private final ExecutorService warmupExecutor = Executors.newSingleThreadExecutor(r -> {
+    Thread t = new Thread(r, "connection-warmup");
+    t.setDaemon(true);
+    return t;
+  });
 
   public ConnectionService(ConnectionRepository repo, AesGcm crypto,
                            TargetDataSourceFactory dsFactory,
@@ -101,6 +115,38 @@ public class ConnectionService {
     String sshPw = decryptIfPresent(repo.findSshPasswordById(id));
     String sshPass = decryptIfPresent(repo.findSshKeyPassphraseById(id));
     return new TargetSecrets(dbPw, sshPw, sshPass);
+  }
+
+  /**
+   * Establishes the SSH tunnel and JDBC pool for a connection in the background and returns
+   * immediately. The UI calls this the moment an operator selects a connection, so the
+   * handshake overlaps their form filling instead of landing on their first dropdown.
+   *
+   * @return true if the connection was already warm, in which case nothing was scheduled
+   */
+  public boolean warm(String id) {
+    Connection conn = repo.findById(id)
+        .orElseThrow(() -> new IllegalArgumentException("Connection not found: " + id));
+    if (dsFactory.isWarm(conn)) return true;
+
+    TargetSecrets secrets = decryptedSecrets(id);
+    warmupExecutor.execute(() -> {
+      if (dsFactory.isWarm(conn)) return;              // a queued duplicate; nothing to do
+      try {
+        long startedAt = System.nanoTime();
+        dsFactory.warm(conn, secrets);
+        log.info("Warmed connection {} in {} ms", conn.name(), (System.nanoTime() - startedAt) / 1_000_000);
+      } catch (Exception e) {
+        // Best effort: the next real request will surface the failure to the operator.
+        log.debug("Warm-up failed for {}: {}", conn.name(), rootCause(e).getMessage());
+      }
+    });
+    return false;
+  }
+
+  @PreDestroy
+  void shutdown() {
+    warmupExecutor.shutdownNow();
   }
 
   public TestConnectionResult test(String id) {

@@ -24,3 +24,21 @@ setup:
     # Local SQLite store. Default: ~/.streem-setup/store.db
     # Override with SETUP_STORE_PATH env var.
     path: ${SETUP_STORE_PATH:${user.home}/.streem-setup/store.db}
+
+  # How we reach target Postgres instances. The SSH session and the physical Postgres
+  # connections are both cached, so a warm target answers in one round trip instead of
+  # re-handshaking SSH and re-authenticating Postgres on every request.
+  target:
+    ssh-connect-timeout: 10s
+    ssh-keep-alive: 30s              # keeps the bastion from dropping an idle tunnel
+    ssh-keep-alive-count-max: 3
+    tunnel-idle-timeout: 30m         # close a tunnel nothing has touched for this long
+    ssh-fast-algorithms: true        # prefer AES-NI ciphers + curve25519 (falls back if unsupported)
+    pool-max-size: 6                 # headroom for a page loading several dropdowns at once
+    pool-min-idle: 1                 # one connection kept warm per target
+    pool-acquire-timeout: 15s
+    pool-idle-timeout: 5m
+    pool-max-lifetime: 20m
+    pool-keep-alive: 60s
+    db-connect-timeout: 10s
+    db-socket-timeout: 60s

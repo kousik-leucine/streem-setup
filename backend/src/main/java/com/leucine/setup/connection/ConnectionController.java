@@ -64,6 +64,19 @@ public class ConnectionController {
     return service.test(id);
   }
 
+  /**
+   * Open the SSH tunnel and JDBC pool for a connection ahead of any real work, so the
+   * operator does not wait on the handshake at their first dropdown. Returns as soon as the
+   * warm-up is scheduled — it never blocks and never fails the request.
+   */
+  @PostMapping("/{id}/warm")
+  public ResponseEntity<Void> warm(@PathVariable String id) {
+    boolean alreadyWarm = service.warm(id);
+    return alreadyWarm
+        ? ResponseEntity.noContent().build()          // 204: ready now
+        : ResponseEntity.accepted().build();          // 202: warming in the background
+  }
+
   /** Enumerate databases on a server from unsaved credentials, to fill the form's picker. */
   @PostMapping("/databases")
   public List<String> databases(@Valid @RequestBody DiscoverDatabasesRequest req) {
